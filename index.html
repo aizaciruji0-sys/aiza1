@@ -14,7 +14,7 @@ let db=null,syncing=false,syncDebounce=null;
 
 const ch=(typeof BroadcastChannel!=='undefined')?new BroadcastChannel('sync'):{postMessage:()=>{},onmessage:null};
 ch.onmessage=e=>{
-  if(e.data==='synced')renderUI();
+  if(e.data==='synced')render();
   else if(e.data==='kick'&&!syncing)syn();
 };
 
@@ -79,7 +79,7 @@ function initDB(tables=[],onReady){
 async function req(p={}){
   p.u=p.u||L.u||'';
   const targetD1=HARD.d1Url||'';
-  if(targetD1&&['pull_batch','pull','manifest','push','set_conn_config','stream'].includes(p.a)){
+  if(targetD1&&['pull_batch','pull','manifest','push','stream'].includes(p.a)){
     try{
       const res=await fetch(targetD1,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
       const json=await res.json();
@@ -109,7 +109,7 @@ async function syn(){
 
     let m=null;
     if(muts.length){
-      const pushRes=await req({a:'push',m:typeof pack==='function'?pack(muts):muts,tn:tables,db:K.db,cols:K.cols,shs:K.shs,cfg:{d1Url:HARD.d1Url,gasUrl:HARD.gasUrl,store:K.store}});
+      const pushRes=await req({a:'push',m:typeof pack==='function'?pack(muts):muts,tn:tables,db:K.db,cols:K.cols,shs:K.shs,gasUrl:HARD.gasUrl});
       if(pushRes?.ok){
         if(typeof rm==='function')await rm('mut',muts.map(x=>x.i));
         m=pushRes.manifest||pushRes.data?.manifest;
@@ -131,7 +131,7 @@ async function syn(){
         if(streamChanged){
           persist();
           ch.postMessage('synced');
-          renderUI();
+          render();
           return;
         }
       }catch(errStream){}
@@ -151,24 +151,20 @@ async function syn(){
         });
         L.vs=JSON.stringify(ver);
         ch.postMessage('synced');
-        renderUI();
+        render();
       }
     }else if(m?.db){
       Object.assign(K.db,m.db);
       persist();
       ch.postMessage('synced');
-      renderUI();
+      render();
     }
   }finally{
     syncing=false;
   }
 }
 
-function renderUI(){
-  if(typeof render==='function')render();
-}
-
-Object.assign(W,{pullStream,idbPut,save,initDB,req,mut,syn,renderUI});
+Object.assign(W,{pullStream,idbPut,save,initDB,req,mut,syn});
 
 /* ============================================================
    2. APP LOGIC, STORAGE, RUNTIME
@@ -225,5 +221,5 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName!=='
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();K.pwaEvent=e;if(K.v==='menu')render()});
 if('serviceWorker' in navigator&&window.location.protocol.startsWith('http')){try{const swCode=`const C='apex-v1';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(clients.claim());});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>caches.match('./'))));});`;const blob=new Blob([swCode],{type:'application/javascript'}),swUrl=URL.createObjectURL(blob);navigator.serviceWorker.register(swUrl).catch(()=>{});}catch(err){}}
 window.addEventListener('online',()=>syn());
-(()=>{try{const d=JSON.parse(L.getItem('apex')||'null');if(d&&typeof d==='object'){if(d.store&&typeof d.store==='object')K.store=Object.assign(K.store,d.store);['shs','cols','vis','fvis','db'].forEach(k=>{if(d[k])K[k]=d[k]});if(d.parent&&typeof d.parent==='object')K.parent=d.parent;if(d.cur&&K.shs.includes(d.cur))K.cur=d.cur;if(d.u)K.u=L.u=d.u;if(d.df&&typeof d.df==='object')K.df=Object.assign(K.df,d.df);K.grid=Boolean(d.grid)}}catch(e){}persist();initDB(T,()=>{syn();});renderUI();})();
+(()=>{try{const d=JSON.parse(L.getItem('apex')||'null');if(d&&typeof d==='object'){if(d.store&&typeof d.store==='object')K.store=Object.assign(K.store,d.store);['shs','cols','vis','fvis','db'].forEach(k=>{if(d[k])K[k]=d[k]});if(d.parent&&typeof d.parent==='object')K.parent=d.parent;if(d.cur&&K.shs.includes(d.cur))K.cur=d.cur;if(d.u)K.u=L.u=d.u;if(d.df&&typeof d.df==='object')K.df=Object.assign(K.df,d.df);K.grid=Boolean(d.grid)}}catch(e){}persist();initDB(T,()=>{syn();});render();})();
 </script></body></html>
